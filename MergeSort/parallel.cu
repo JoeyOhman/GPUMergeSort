@@ -1,50 +1,161 @@
-//#include <thrust/sort.h>
+#include <algorithm>
+#include <iostream>
 #include "device_launch_parameters.h"
 #include "cuda_runtime.h"
+#include "utils.h"
 
+// Should use binary search!
+__device__ int getIndex(int* subAux, int ownIndex, int nLow, int nTot) {
+	int indexArr;
+	if(ownIndex >= nLow) // this thread is then part of 2nd arr
+		indexArr = nLow;
+	else
+		indexArr = 0;
 
-int* auxArr;
+	while (subAux[indexArr] < subAux[ownIndex] && indexArr < nTot)
+		indexArr++;
 
-__global__ void merge(int* arrLow, int* arrHigh, int* auxLow, int* auxHigh, int nLow, int nHigh) {
+	return indexArr;
+}
+// CANNOT HANDLE DUPLICATES
+__global__ void mergeKernel(int* arr, int* aux, int low, int mid, int high) {
 	
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	int stride = blockDim.x * gridDim.x; // number of threads
-	int nTot = nLow + nHigh;
-	// if (idx >= nLow + nHigh) return;
 
-	for (int i = idx; i < nTot; i += stride) {
-		auxLow[i] = arrLow[i];
-	}
+	int nLow = mid - low + 1; // optimize
+	int nHigh = high - mid;
 
-	
+	int arrIndex = getIndex(&aux[low], idx, nLow, nLow + nHigh);
+	arr[low + arrIndex] = aux[idx];
 }
 
-void mergeSort(int* arr, int low, int high) {
-	if (low < high) {
-		int mid = low + ((high - low) / 2);
 
-		mergeSort(arr, low, mid);
-		mergeSort(arr, mid + 1, high);
+__device__ void merge(int* arr, int* aux, int low, int mid, int high) {
+	int i = 0;
+	int j = 0;
+	int mergedIndex = low;
 
-		int nLow = mid - low + 1;
-		int nHigh = high - mid;
-		int nTot = nLow + nHigh;
-		int* auxArrLow = &auxArr[low];
-		int* auxArrHigh = &auxArr[low + nLow];
-		cudaMemcpy(auxArrLow, &arr[low], nTot, cudaMemcpyDeviceToDevice);
-		
+	int nLow = mid - low + 1;
+	int nHigh = high - mid;
+
+	while (i < nLow && j < nHigh) {
+		if (aux[low + i] <= aux[mid + 1 + j]) {
+			arr[mergedIndex] = aux[low + i];
+			i++;
+		}
+		else {
+			arr[mergedIndex] = aux[mid + 1 + j];
+			j++;
+		}
+		mergedIndex++;
+	}
+
+	while (i < nLow) {
+		arr[mergedIndex] = aux[low + i];
+		i++;
+		mergedIndex++;
+	}
+	while (j < nHigh) {
+		arr[mergedIndex] = aux[mid + 1 + j];
+		j++;
+		mergedIndex++;
+	}
+}
+
+__global__ void mergeSort(int* arr, int* aux, int currentSize, int n, int width) {
+
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+	int low = idx * width;
+	if(low >= n) return;
+	int mid = low + currentSize - 1;
+	int high = min(low + width - 1, n-1);
+
+	// merge(arr, aux, low, mid, high);
+	int nTot = high - low + 1; // number of threads to spawn
+	int numThreadsPerBlock = 256;
+	int numBlocks = (nTot + numThreadsPerBlock - 1) / numThreadsPerBlock;
+	mergeKernel<<<numBlocks, numThreadsPerBlock>>>(arr, aux, low, mid, high);
+}
+
+void mergeFalloff(int* arr, int* aux, int low, int mid, int high) {
+	int i = 0;
+	int j = 0;
+	int mergedIndex = low;
+
+	int nLow = mid - low + 1;
+	int nHigh = high - mid;
+
+	while (i < nLow && j < nHigh) {
+		if (aux[low + i] <= aux[mid + 1 + j]) {
+			arr[mergedIndex] = aux[low + i];
+			i++;
+		}
+		else {
+			arr[mergedIndex] = aux[mid + 1 + j];
+			j++;
+		}
+		mergedIndex++;
+	}
+
+	while (i < nLow) {
+		arr[mergedIndex] = aux[low + i];
+		i++;
+		mergedIndex++;
+	}
+	while (j < nHigh) {
+		arr[mergedIndex] = aux[mid + 1 + j];
+		j++;
+		mergedIndex++;
+	}
+
+}
+
+void mergeSortFalloff(int* arr, int* aux, int currentSize, int n, int width) {
+	for (int low = 0; low < n - currentSize; low += width) {
+		int mid = low + currentSize - 1;
+		int high = min(low + width - 1, n-1);
+
+		mergeFalloff(arr, aux, low, mid, high);
+	}
+}
+
+void mergeSortGPU(int* arr, int n) { // ASSUMES POWER OF 2 FOR NOW
+
+	int* deviceArr;
+	int* auxArr;
+
+	cudaMallocManaged(&deviceArr, n * sizeof(int));
+	cudaMallocManaged(&auxArr, n * sizeof(int)); // Allocate aux arr on GPU
+	cudaMemcpy(deviceArr, arr, n * sizeof(int), cudaMemcpyDefault); // Move arr to cuda managed memory
+
+	for (int currentSize = 1; currentSize < n; currentSize *= 2) {
+
+		int width = currentSize*2;
+		int numSorts = n / width; // number of sorting threads to spawn
+
 		int numThreadsPerBlock = 256;
-		int numBlocks = nTot; // to be fixed
-		//merge<<<numBlocks, numThreadsPerBlock >>> (&arr[low], &arr[mid + 1], auxLow, auxHigh, nLow, nHigh);
+		int numBlocks = (numSorts + numThreadsPerBlock - 1) / numThreadsPerBlock;
+		
+		std::cout << "Num sorts: " << numSorts << ", num threads spawned: " << numThreadsPerBlock * numBlocks << std::endl;
+		std::cout << "DevArr: ";
+		printArray(deviceArr, n);
+
+		/*
+		if(numSorts >= 64) {
+			cudaMemcpy(auxArr, deviceArr, n * sizeof(int), cudaMemcpyDeviceToDevice); 
+			mergeSort<<<numBlocks, numThreadsPerBlock>>>(deviceArr, auxArr, currentSize, n, width);
+		} else {
+			cudaMemcpy(auxArr, deviceArr, n * sizeof(int), cudaMemcpyDefault);
+			mergeSortFalloff(deviceArr, auxArr, currentSize, n, width);
+		}
+		*/
+		cudaMemcpy(auxArr, deviceArr, n * sizeof(int), cudaMemcpyDeviceToDevice); 
+		mergeSort<<<numBlocks, numThreadsPerBlock>>>(deviceArr, auxArr, currentSize, n, width);
 	}
-}
 
-void mergeSortGPU(int* arr, int length) {
-	//thrust::sort(arr, arr + length);
+	cudaMemcpy(arr, deviceArr, n * sizeof(int), cudaMemcpyDefault);
 
-	int *deviceArr;
-	cudaMallocManaged(&deviceArr, length * sizeof(int));
-	cudaMemcpy(deviceArr, arr, length, cudaMemcpyDefault); // Move arr to cuda managed memory
-	cudaMemcpy(auxArr, deviceArr, length, cudaMemcpyDeviceToDevice); // Allocate aux arr on GPU
-	mergeSort(arr, 0, length - 1);
+	cudaFree(deviceArr);
+	cudaFree(auxArr);
 }

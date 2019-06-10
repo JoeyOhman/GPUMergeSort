@@ -2,21 +2,22 @@
 #include "parallel.h"
 #include "utils.h"
 #include <iostream>
-#include <chrono>
+//#include <chrono>
 
 using namespace std;
 
 
-long long bench(int* arr, int length, bool gpu) {
-	chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
-
+double bench(int* arr, int length, bool gpu) {
+	//chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
+	startTimer();
 	if(gpu) 
 		mergeSortGPU(arr, length);
 	else
 		mergeSortSeq(arr, length);
 
-	chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
-	long long duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count() / 1000;
+	double duration = getTimeElapsed();
+	//chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
+	//long long duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count() / 1000;
 	return duration;
 }
 
@@ -32,15 +33,20 @@ int main(int argc, char** argv) {
 	
 	//cout << "Sorting.." << endl;
 
-	for (int i = 0; i < 1; i++) {
+	for (int i = 0; i < 5; i++) {
 		randomizeArray(arr, length);
-		printArray(arr, length);
-		long long duration = bench(arr, length, gpu);
+		
+		int* copyArr = getSortedCopy(arr, length);
+		// printArray(arr, length);
+		double duration = bench(arr, length, gpu);
+		// cout << "Copy: ";
+		// printArray(copyArr, length);
 
-		printArray(arr, length);
-		cout << "Sorted? " << boolalpha << checkSorted(arr, length) << endl;
+		// printArray(arr, length);
+		
+		cout << "Correct? " << boolalpha << arraysEqual(arr, copyArr, length) << endl;
 
-		cout << "Duration: " << duration << " milliseconds" << endl << endl;
+		cout << "Duration: " << duration << " seconds" << endl << endl;
 	}
 
 	return 0;
