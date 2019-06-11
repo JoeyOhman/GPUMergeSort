@@ -17,9 +17,14 @@ void printArray(int* arr, int length) {
 }
 
 bool checkSorted(int* arr, int length) {
+	for(int i = 0; i < length; i++)
+		if(arr[i] != i)
+			return false;
+	/*
 	for (int i = 1; i < length; i++)
 		if (arr[i] < arr[i - 1])
 			return false;
+	*/
 
 	return true;
 }

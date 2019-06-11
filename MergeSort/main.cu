@@ -2,6 +2,7 @@
 #include "parallel.h"
 #include "utils.h"
 #include <iostream>
+#include <time.h>
 //#include <chrono>
 
 using namespace std;
@@ -26,6 +27,8 @@ int main(int argc, char** argv) {
 		cout << "Enter arguments: arrayLength runOnGPU (0 for sequential, 1 for GPU)" << endl;
 		return 0;
 	}
+	srand (time(NULL));
+
 	const int length = atoi(argv[1]);
 	bool gpu = atoi(argv[2]);
 
@@ -33,18 +36,19 @@ int main(int argc, char** argv) {
 	
 	//cout << "Sorting.." << endl;
 
-	for (int i = 0; i < 5; i++) {
+	for (int i = 0; i < 10; i++) {
+		// cout << "Randomizing..." << endl;
 		randomizeArray(arr, length);
+		// cout << "Randomized!" << endl;
 		
-		int* copyArr = getSortedCopy(arr, length);
+		// int* copyArr = getSortedCopy(arr, length);
 		// printArray(arr, length);
 		double duration = bench(arr, length, gpu);
-		// cout << "Copy: ";
-		// printArray(copyArr, length);
 
 		// printArray(arr, length);
 		
-		cout << "Correct? " << boolalpha << arraysEqual(arr, copyArr, length) << endl;
+		// cout << "Correct? " << boolalpha << arraysEqual(arr, copyArr, length) << endl;
+		cout << "Correct? " << boolalpha << checkSorted(arr, length) << endl;
 
 		cout << "Duration: " << duration << " seconds" << endl << endl;
 	}
