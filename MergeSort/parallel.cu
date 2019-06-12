@@ -6,12 +6,15 @@
 #include "device_launch_parameters.h"
 #include "cuda_runtime.h"
 #include "utils.h"
+#include "cudaErrorUtils.cu"
+
 
 __device__ int binarySearch(int* arr, int val, int low, int high) {
 	if (high <= low) 
-        return (val > arr[low]) ? (low + 1) : low; 
+		return (val > arr[low]) ? (low + 1) : low; 
+		// for some huge non pow2 inputs this is gives out of bounds, ex: 1231233
   
-    int mid = (low + high)/2; 
+    int mid = (low + high)/2;
   
     //if(val == a[mid]) we dont support duplicates anyway
         //return mid+1; 
@@ -22,10 +25,7 @@ __device__ int binarySearch(int* arr, int val, int low, int high) {
     return binarySearch(arr, val, low, mid); // was mid-1
 }
 
-// Should use binary search!
 __device__ int getIndex(int* subAux, int ownIndex, int nLow, int nTot) {
-	//int numBeforeInOther = 0;
-	//int indexInArr = 0;
 	int scanIndex;
 	int upperBound;
 	bool partOfFirstArr = ownIndex < nLow;
@@ -39,26 +39,15 @@ __device__ int getIndex(int* subAux, int ownIndex, int nLow, int nTot) {
 		upperBound = nLow;
 	}
 
-	//while (subAux[scanIndex] < subAux[ownIndex] && scanIndex < upperBound)
+	//while (scanIndex < upperBound && subAux[scanIndex] < subAux[ownIndex])
 		//scanIndex++;
 
-	//scanIndex++;
-
-	//numBeforeInOther = partOfFirstArr ? scanIndex - nLow : scanIndex;
-
 	scanIndex = binarySearch(subAux, subAux[ownIndex], scanIndex, upperBound-1);
-	// printf("ScanIndex found: %d, by thread: %d, nTot: %d\n", scanIndex, ownIndex, nTot);
-	// numBeforeInOther = partOfFirstArr ? indexInArr - nLow : indexInArr;
 
+	// Bot lower subarr and upper need subtraction of nLow for different reasons
 	return ownIndex + scanIndex - nLow;
-
-	/*
-	if(! partOfFirstArr)
-		return ownIndex - nLow + numBeforeInOther;
-
-	return ownIndex + numBeforeInOther;
-	*/
 }
+
 // CANNOT HANDLE DUPLICATES
 __global__ void mergeKernel(int* arr, int* aux, int low, int mid, int high) {
 	
@@ -98,6 +87,12 @@ __device__ void merge(int* arr, int* aux, int low, int mid, int high) {
 		mergedIndex++;
 	}
 
+	//int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	//if(idx == (4*blockDim.x + 178)) {
+	//	printf("My idx: %d, nLow: %d\n", idx, nLow);
+	//	printf("i=%d, mergedIndex=%d, low=%d, mid=%d, high=%d\n", i, mergedIndex, low, mid, high);
+	//}
+
 	while (i < nLow) {
 		arr[mergedIndex] = aux[low + i];
 		i++;
@@ -115,53 +110,49 @@ __global__ void mergeSort(int* arr, int* aux, int currentSize, int n, int width)
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	int low = idx * width;
-	if(low >= n) return;
+	if(low >= n-1) 
+		return;
 	int mid = low + currentSize - 1;
 	int high = min(low + width - 1, n-1);
+	mid = min(mid, high); // Necessary for edge cases! Nvm...
 
 	int nTot = high - low + 1; // number of threads to spawn
 	if(nTot > 4096) { // Don't launch a kernel if the merge is small
 		int numThreadsPerBlock = 256;
 		int numBlocks = (nTot + numThreadsPerBlock - 1) / numThreadsPerBlock;
-		//printf("ID %d: Spawning %d threads to merge %d elements\n", idx, numThreadsPerBlock*numBlocks, nTot);
-		// merge(arr, aux, low, mid, high);
+		
 		mergeKernel<<<numBlocks, numThreadsPerBlock>>>(arr, aux, low, mid, high);
-		//__syncthreads();
+		cudaCheckErrorDev();
 	} else {
 		merge(arr, aux, low, mid, high);
 	}
-
 }
 
-void mergeSortGPU(int* arr, int n) { // ASSUMES POWER OF 2 FOR NOW
+void mergeSortGPU(int* arr, int n) { // ASSUMES POWER OF 2 FOR NOW, ish
 
 	int* deviceArr;
 	int* auxArr;
 
-	cudaMallocManaged(&deviceArr, n * sizeof(int));
-	cudaMallocManaged(&auxArr, n * sizeof(int)); // Allocate aux arr on GPU
-	cudaMemcpy(deviceArr, arr, n * sizeof(int), cudaMemcpyDefault); // Move arr to cuda managed memory
+	cudaSafeCall(cudaMallocManaged(&deviceArr, n * sizeof(int)));
+	cudaSafeCall(cudaMallocManaged(&auxArr, n * sizeof(int)));
+	cudaSafeCall(cudaMemcpy(deviceArr, arr, n * sizeof(int), cudaMemcpyDefault)); // Move arr to cuda managed memory
 
 	for (int currentSize = 1; currentSize < n; currentSize *= 2) {
 
 		int width = currentSize*2;
-		int numSorts = n / width; // number of sorting threads to spawn
+		int numSorts = (n + width - 1) / width; // number of sorting threads to spawn
 
 		int numThreadsPerBlock = 256;
 		int numBlocks = (numSorts + numThreadsPerBlock - 1) / numThreadsPerBlock;
 		
-		
-		cudaMemcpy(auxArr, deviceArr, n * sizeof(int), cudaMemcpyDeviceToDevice); 
+		// Streams might speed things up?
+		//printf("Calling kernel mergeSort<<<%d, %d>>>, numSorts: %d\n", numBlocks, numThreadsPerBlock, numSorts);
+		cudaSafeCall(cudaMemcpy(auxArr, deviceArr, n * sizeof(int), cudaMemcpyDeviceToDevice));
 		mergeSort<<<numBlocks, numThreadsPerBlock>>>(deviceArr, auxArr, currentSize, n, width);
-		
-		// std::cout << "Num sorts: " << numSorts << ", num threads spawned: " << numThreadsPerBlock * numBlocks << std::endl;
-		// usleep(1000000);
-		// cudaMemcpy(arr, deviceArr, n * sizeof(int), cudaMemcpyDefault);
-		// std::cout << "DevArr transferred to arr: ";
-		// printArray(arr, n);
+		cudaCheckError();
 	}
 
-	cudaMemcpy(arr, deviceArr, n * sizeof(int), cudaMemcpyDefault);
+	cudaSafeCall(cudaMemcpy(arr, deviceArr, n * sizeof(int), cudaMemcpyDefault));
 
 	cudaFree(deviceArr);
 	cudaFree(auxArr);

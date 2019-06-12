@@ -2,6 +2,7 @@
 #include "parallel.h"
 #include "utils.h"
 #include <iostream>
+#include <stdio.h>
 #include <time.h>
 //#include <chrono>
 
@@ -9,7 +10,6 @@ using namespace std;
 
 
 double bench(int* arr, int length, bool gpu) {
-	//chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
 	startTimer();
 	if(gpu) 
 		mergeSortGPU(arr, length);
@@ -17,10 +17,9 @@ double bench(int* arr, int length, bool gpu) {
 		mergeSortSeq(arr, length);
 
 	double duration = getTimeElapsed();
-	//chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
-	//long long duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count() / 1000;
 	return duration;
 }
+
 
 int main(int argc, char** argv) {
 	if (argc < 3) {
@@ -28,6 +27,7 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 	srand (time(NULL));
+	double lowestTime = 9999999999.0;
 
 	const int length = atoi(argv[1]);
 	bool gpu = atoi(argv[2]);
@@ -36,22 +36,25 @@ int main(int argc, char** argv) {
 	
 	//cout << "Sorting.." << endl;
 
-	for (int i = 0; i < 10; i++) {
-		// cout << "Randomizing..." << endl;
+	for (int i = 0; i < 5; i++) {
 		randomizeArray(arr, length);
-		// cout << "Randomized!" << endl;
 		
-		// int* copyArr = getSortedCopy(arr, length);
 		// printArray(arr, length);
 		double duration = bench(arr, length, gpu);
+		if(duration < lowestTime)
+			lowestTime = duration;
 
 		// printArray(arr, length);
-		
-		// cout << "Correct? " << boolalpha << arraysEqual(arr, copyArr, length) << endl;
-		cout << "Correct? " << boolalpha << checkSorted(arr, length) << endl;
+		bool correct = checkSorted(arr, length);
+		if(! correct) {
+			cout << "INCORRECT SORT!" << endl;
+			return 0;
+		}
+		//cout << "Correct? " << boolalpha << correct << endl;
 
-		cout << "Duration: " << duration << " seconds" << endl << endl;
+		//cout << "Duration: " << duration << " seconds" << endl;
 	}
+	cout << "Lowest time: " << lowestTime << " seconds" << endl;
 
 	return 0;
 }
