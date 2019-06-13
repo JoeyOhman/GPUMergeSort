@@ -2,6 +2,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <stdio.h>
+#include <assert.h>
 
 #include "device_launch_parameters.h"
 #include "cuda_runtime.h"
@@ -76,7 +77,8 @@ __device__ void merge(int* arr, int* aux, int low, int mid, int high) {
 	int nHigh = high - mid;
 
 	while (i < nLow && j < nHigh) {
-		if (aux[low + i] <= aux[mid + 1 + j]) {
+		int lowVal = aux[low + i];
+		if (lowVal < aux[mid + 1 + j]) {
 			arr[mergedIndex] = aux[low + i];
 			i++;
 		}
@@ -86,12 +88,6 @@ __device__ void merge(int* arr, int* aux, int low, int mid, int high) {
 		}
 		mergedIndex++;
 	}
-
-	//int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	//if(idx == (4*blockDim.x + 178)) {
-	//	printf("My idx: %d, nLow: %d\n", idx, nLow);
-	//	printf("i=%d, mergedIndex=%d, low=%d, mid=%d, high=%d\n", i, mergedIndex, low, mid, high);
-	//}
 
 	while (i < nLow) {
 		arr[mergedIndex] = aux[low + i];
@@ -110,13 +106,16 @@ __global__ void mergeSort(int* arr, int* aux, int currentSize, int n, int width)
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	int low = idx * width;
-	if(low >= n-1) 
+	//assert(low >= 0);
+	//if(low >= n-1) 
+	if(low >= n - currentSize || low < 0) // careful for overflow, especially if aligned and duplicates computations
 		return;
 	int mid = low + currentSize - 1;
 	int high = min(low + width - 1, n-1);
-	mid = min(mid, high); // Necessary for edge cases! Nvm...
-
+	//assert(mid <= high);
+	//mid = min(mid, high); // Necessary for edge cases! Nvm...
 	int nTot = high - low + 1; // number of threads to spawn
+
 	if(nTot > 4096) { // Don't launch a kernel if the merge is small
 		int numThreadsPerBlock = 256;
 		int numBlocks = (nTot + numThreadsPerBlock - 1) / numThreadsPerBlock;
@@ -128,7 +127,7 @@ __global__ void mergeSort(int* arr, int* aux, int currentSize, int n, int width)
 	}
 }
 
-void mergeSortGPU(int* arr, int n) { // ASSUMES POWER OF 2 FOR NOW, ish
+void mergeSortGPU(int* arr, int n) {
 
 	int* deviceArr;
 	int* auxArr;

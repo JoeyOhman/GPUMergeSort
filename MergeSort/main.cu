@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
 	
 	//cout << "Sorting.." << endl;
 
-	for (int i = 0; i < 5; i++) {
+	for (int i = 0; i < 20; i++) {
 		randomizeArray(arr, length);
 		
 		// printArray(arr, length);
@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
 		}
 		//cout << "Correct? " << boolalpha << correct << endl;
 
-		//cout << "Duration: " << duration << " seconds" << endl;
+		cout << "Duration: " << duration << " seconds" << endl;
 	}
 	cout << "Lowest time: " << lowestTime << " seconds" << endl;
 
