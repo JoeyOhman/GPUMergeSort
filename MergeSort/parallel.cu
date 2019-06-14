@@ -116,8 +116,10 @@ __global__ void mergeSort(int* arr, int* aux, int currentSize, int n, int width)
 	//mid = min(mid, high); // Necessary for edge cases! Nvm...
 	int nTot = high - low + 1; // number of threads to spawn
 
-	if(nTot > 4096) { // Don't launch a kernel if the merge is small
-		int numThreadsPerBlock = 256;
+	if(nTot > 16384) { // Don't launch a kernel if the merge is small
+	// Since this kernel only is launched with high number of threads a high blockSize
+	// should still utilize all SMs but also give less overhead and better cache behaviour
+		int numThreadsPerBlock = 1024;
 		int numBlocks = (nTot + numThreadsPerBlock - 1) / numThreadsPerBlock;
 		
 		mergeKernel<<<numBlocks, numThreadsPerBlock>>>(arr, aux, low, mid, high);
@@ -141,7 +143,9 @@ void mergeSortGPU(int* arr, int n) {
 		int width = currentSize*2;
 		int numSorts = (n + width - 1) / width; // number of sorting threads to spawn
 
-		int numThreadsPerBlock = 256;
+		// Low amount here allows for higher parallelism over SM's in some cases
+		// Could be dynamic for best performance?
+		int numThreadsPerBlock = 32; 
 		int numBlocks = (numSorts + numThreadsPerBlock - 1) / numThreadsPerBlock;
 		
 		// Streams might speed things up?

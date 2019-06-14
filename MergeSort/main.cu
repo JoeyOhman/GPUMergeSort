@@ -22,8 +22,8 @@ double bench(int* arr, int length, bool gpu) {
 
 
 int main(int argc, char** argv) {
-	if (argc < 3) {
-		cout << "Enter arguments: arrayLength runOnGPU (0 for sequential, 1 for GPU)" << endl;
+	if (argc < 4) {
+		cout << "Enter arguments: arrayLength runOnGPU (0 for sequential, 1 for GPU) numSorts" << endl;
 		return 0;
 	}
 	srand (time(NULL));
@@ -31,13 +31,16 @@ int main(int argc, char** argv) {
 
 	const int length = atoi(argv[1]);
 	bool gpu = atoi(argv[2]);
+	int numSorts = atoi(argv[3]);
 
 	int* arr = new int[length];
 	
 	//cout << "Sorting.." << endl;
 
-	for (int i = 0; i < 20; i++) {
+	for (int i = 0; i < numSorts; i++) {
+		//cout << "Randomizing..." << endl;
 		randomizeArray(arr, length);
+		//cout << "Randomized!" << endl;
 		
 		// printArray(arr, length);
 		double duration = bench(arr, length, gpu);

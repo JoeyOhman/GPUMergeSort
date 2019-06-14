@@ -56,6 +56,7 @@ __device__ inline void __cudaCheckErrorDev( const char *file, const int line )
     if( cudaSuccess != err ) {
         printf("%s %s %d\n", cudaGetErrorString(err), file, line);
     }
+    
 #endif
 
     //return;
