@@ -133,6 +133,8 @@ void mergeSortGPU(int* arr, int n) {
 	int* deviceArr;
 	int* auxArr;
 
+		
+	cudaSafeCall(cudaDeviceSetCacheConfig(cudaFuncCachePreferL1));
 	cudaSafeCall(cudaMallocManaged(&deviceArr, n * sizeof(int)));
 	cudaSafeCall(cudaMallocManaged(&auxArr, n * sizeof(int)));
 	cudaSafeCall(cudaMemcpy(deviceArr, arr, n * sizeof(int), cudaMemcpyDefault)); // Move arr to cuda managed memory
