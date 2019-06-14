@@ -77,8 +77,7 @@ __device__ void merge(int* arr, int* aux, int low, int mid, int high) {
 	int nHigh = high - mid;
 
 	while (i < nLow && j < nHigh) {
-		int lowVal = aux[low + i];
-		if (lowVal < aux[mid + 1 + j]) {
+		if (aux[low + i] < aux[mid + 1 + j]) {
 			arr[mergedIndex] = aux[low + i];
 			i++;
 		}
