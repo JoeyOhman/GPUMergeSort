@@ -1,4 +1,4 @@
-# Merge Sort on GPU with CUDA
+# Bottom-up (iterative) Merge Sort on GPU with CUDA
 Just a nice CUDA example!
 
 ## Benchmark
