@@ -1,6 +1,6 @@
 #include <iostream>
 #include <time.h>
-#include <thrust/sort.h>
+//#include <thrust/sort.h>
 #include <algorithm>
 
 using namespace std;
