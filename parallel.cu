@@ -13,7 +13,6 @@
 __device__ int binarySearch(int* arr, int val, int low, int high) {
 	if (high <= low) 
 		return (val > arr[low]) ? (low + 1) : low; 
-		// for some huge non pow2 inputs this is gives out of bounds, ex: 1231233
   
     int mid = (low + high)/2;
   
@@ -105,14 +104,12 @@ __global__ void mergeSort(int* arr, int* aux, int currentSize, int n, int width)
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	int low = idx * width;
-	//assert(low >= 0);
-	//if(low >= n-1) 
+
 	if(low >= n - currentSize || low < 0) // careful for overflow, especially if aligned and duplicates computations
 		return;
 	int mid = low + currentSize - 1;
 	int high = min(low + width - 1, n-1);
-	//assert(mid <= high);
-	//mid = min(mid, high); // Necessary for edge cases! Nvm...
+	
 	int nTot = high - low + 1; // number of threads to spawn
 
 	if(nTot > 16384) { // Don't launch a kernel if the merge is small
@@ -144,13 +141,12 @@ void mergeSortGPU(int* arr, int n) {
 		int width = currentSize*2;
 		int numSorts = (n + width - 1) / width; // number of sorting threads to spawn
 
-		// Low amount here allows for higher parallelism over SM's in some cases
+		// Low amount here allows for higher parallelism over SM's in some cases since we want at least as many blocks as the number of SMs
 		// Could be dynamic for best performance?
 		int numThreadsPerBlock = 32; 
 		int numBlocks = (numSorts + numThreadsPerBlock - 1) / numThreadsPerBlock;
 		
 		// Streams might speed things up?
-		//printf("Calling kernel mergeSort<<<%d, %d>>>, numSorts: %d\n", numBlocks, numThreadsPerBlock, numSorts);
 		cudaSafeCall(cudaMemcpy(auxArr, deviceArr, n * sizeof(int), cudaMemcpyDeviceToDevice));
 		mergeSort<<<numBlocks, numThreadsPerBlock>>>(deviceArr, auxArr, currentSize, n, width);
 		cudaCheckError();

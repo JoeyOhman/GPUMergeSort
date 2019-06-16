@@ -40,10 +40,10 @@ void randomizeArray(int* arr, int length) {
 	}
 }
 
-void swapPointers(int* a, int* b) {
-	int* temp = a; // swap pointers
-	a = b;
-	b = temp;
+void swapPointers(int** a, int** b) {
+	int* temp = *a;
+	*a = *b;
+	*b = temp;
 }
 
 bool arraysEqual(int* a, int* b, int n) {

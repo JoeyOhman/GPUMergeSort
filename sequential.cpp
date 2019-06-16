@@ -41,9 +41,11 @@ void mergeSeq(int* arr, int* aux, int low, int mid, int high) {
 void sortSeq(int* arr, int n) {
 
 	int* aux = new int[n];
+	// bool swapped = false;
 
 	for (int currentSize = 1; currentSize < n; currentSize *= 2) {
-		
+		// swapPointers(&arr, &aux);
+		// swapped = !swapped;
 		for (int i = 0; i < n; i++)
 			aux[i] = arr[i];
 
@@ -54,16 +56,19 @@ void sortSeq(int* arr, int n) {
 			mergeSeq(arr, aux, low, mid, high);
 		}
 
-		//swapPointers(arr, aux);
-
 	}
-
-	//swapPointers(arr, aux);
+	/*
+	if(swapped) {
+		swapPointers(&arr, &aux);
+		for (int i = 0; i < n; i++)
+			arr[i] = aux[i];
+	}
+	*/
+	delete[] aux;
 }
 
 void mergeSortSeq(int* arr, int length) {
 	
-	//mergeSortSeq(arr, 0, length-1);
 	sortSeq(arr, length);
 }
 

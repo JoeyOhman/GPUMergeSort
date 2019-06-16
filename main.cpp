@@ -4,14 +4,13 @@
 #include <iostream>
 #include <stdio.h>
 #include <time.h>
-//#include <chrono>
 
 using namespace std;
 
 
 double bench(int* arr, int length, bool gpu) {
 	startTimer();
-	if(gpu) 
+	if(gpu)
 		mergeSortGPU(arr, length);
 	else
 		mergeSortSeq(arr, length);
@@ -20,10 +19,9 @@ double bench(int* arr, int length, bool gpu) {
 	return duration;
 }
 
-
 int main(int argc, char** argv) {
 	if (argc < 4) {
-		cout << "Enter arguments: arrayLength runOnGPU (0 for sequential, 1 for GPU) numSorts" << endl;
+		cout << "Enter arguments: arrayLength runOnGPU(0 for sequential, 1 for GPU) numSorts" << endl;
 		return 0;
 	}
 	srand (time(NULL));
@@ -34,13 +32,9 @@ int main(int argc, char** argv) {
 	int numSorts = atoi(argv[3]);
 
 	int* arr = new int[length];
-	
-	//cout << "Sorting.." << endl;
 
 	for (int i = 0; i < numSorts; i++) {
-		//cout << "Randomizing..." << endl;
 		randomizeArray(arr, length);
-		//cout << "Randomized!" << endl;
 		
 		// printArray(arr, length);
 		double duration = bench(arr, length, gpu);
@@ -51,13 +45,14 @@ int main(int argc, char** argv) {
 		bool correct = checkSorted(arr, length);
 		if(! correct) {
 			cout << "INCORRECT SORT!" << endl;
+			delete[] arr;
 			return 0;
 		}
-		//cout << "Correct? " << boolalpha << correct << endl;
 
 		cout << "Duration: " << duration << " seconds" << endl;
 	}
 	cout << "Lowest time: " << lowestTime << " seconds" << endl;
 
+	delete[] arr;
 	return 0;
 }
