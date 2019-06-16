@@ -1,4 +1,4 @@
-# GPUMergeSort
+# Merge Sort on GPU with CUDA
 
 ## Benchmark
 
