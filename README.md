@@ -10,7 +10,7 @@ GPU: GeForce RTX 2070
 **Sorting 100.000.000 integers**<br>
 *Lowest time of 5 sorts on shuffled array*
 
-Time CPU: 11.9298 seconds (with -O3 flag)<br>
+Time CPU: 11.9298 seconds (sequential with -O3 flag)<br>
 Time GPU: 0.868567 seconds<br>
 Speedup: ~13.735
 
